@@ -654,6 +654,7 @@ def generate_ai_nutrition_plan(user: UserDB, db: Session) -> dict:
     from src.retriever import AdvancedNutritionRetriever
     from src.vectorstore import build_vectorstore
     from pathlib import Path
+    import re
     
     vs = build_vectorstore()
     retriever = AdvancedNutritionRetriever(vectorstore=vs)
@@ -712,27 +713,97 @@ def generate_ai_nutrition_plan(user: UserDB, db: Session) -> dict:
         
     daily_plan_template = matched_plan.get("daily_plan", {}) if matched_plan else {}
     
-    # 3. Build the LLM prompt
+    # Mathematical dynamic portion scaling engine:
+    # Scale each food's calories, carbs, protein, fat, and quantity dynamically based on target calories!
+    template_cals = daily_plan_template.get("daily_totals", {}).get("calories", 1745)
+    scale_factor = cals / template_cals if template_cals > 0 else 1.0
+    
+    dynamic_plan = {"meals": {}}
+    
+    def scale_quantity(qty_str, factor):
+        match = re.search(r"(\d+(\.\d+)?)", qty_str)
+        if match:
+            num = float(match.group(1))
+            scaled_num = num * factor
+            if scaled_num.is_integer() or scaled_num > 10:
+                scaled_val = str(int(round(scaled_num)))
+            else:
+                scaled_val = f"{scaled_num:.1f}"
+            return qty_str.replace(match.group(1), scaled_val)
+        return qty_str
+
+    for meal_key, meal_data in daily_plan_template.items():
+        if meal_key == "daily_totals":
+            continue
+            
+        foods = meal_data.get("foods", [])
+        scaled_foods = []
+        meal_cals = 0
+        meal_prot = 0
+        meal_carbs = 0
+        meal_fat = 0
+        
+        for food in foods:
+            scaled_qty = scale_quantity(food.get("quantity", "100g"), scale_factor)
+            f_cals = int(round(food.get("calories", 0) * scale_factor))
+            f_prot = int(round(food.get("protein", 0) * scale_factor))
+            f_carbs = int(round(food.get("carbs", 0) * scale_factor))
+            f_fat = int(round(food.get("fat", 0) * scale_factor))
+            
+            meal_cals += f_cals
+            meal_prot += f_prot
+            meal_carbs += f_carbs
+            meal_fat += f_fat
+            
+            scaled_foods.append({
+                "name": food.get("name", ""),
+                "quantity": scaled_qty,
+                "calories": f_cals,
+                "protein": f_prot,
+                "carbs": f_carbs,
+                "fat": f_fat
+            })
+            
+        meal_name = meal_data.get("meal_name", "Meal")
+        if user.ramadan_mode:
+            if meal_key == "breakfast":
+                meal_name = "Shour Protéiné & Hydratant"
+            elif meal_key == "lunch":
+                meal_name = "Iftar de Rupture Équilibré"
+            elif meal_key == "snack":
+                meal_name = "Collation Post-Tarawih"
+            elif meal_key == "dinner":
+                meal_name = "Dîner Léger de Nuit"
+                
+        dynamic_plan["meals"][meal_key] = {
+            "name": meal_name,
+            "items": [f"{f['quantity']} {f['name']}" for f in scaled_foods],
+            "calories": meal_cals,
+            "protein": meal_prot,
+            "carbs": meal_carbs,
+            "fat": meal_fat
+        }
+        
+    # 3. Build the LLM prompt to adapt allergies, preferences, and RAG context
     from src.agent import get_llm
     llm = get_llm()
     
     system_prompt = (
         "Tu es un expert en nutrition clinique et coach de fitness diplômé spécialisé en diététique tunisienne.\n"
-        "Ta mission est de prendre le modèle de repas structuré fourni, de l'adapter rigoureusement au profil de l'utilisateur, "
-        "et d'effectuer le calcul précis des portions pour correspondre EXACTEMENT aux cibles caloriques et macro-nutritionnelles journalières.\n"
+        "Ta mission est de prendre le plan de repas calculé dynamiquement par le serveur, de l'adapter rigoureusement aux allergies et préférences de l'utilisateur, et de renvoyer le JSON final.\n"
         "\n"
         "Règles absolues :\n"
-        "1) Utilise obligatoirement les noms et structures de repas du modèle de base ci-dessous comme fondation de ton plan.\n"
-        "2) Redimensionne proportionnellement chaque aliment et ses portions (par exemple, augmente/diminue le grammage de la dinde, du riz blanc, des amandes, de l'avoine ou du poisson) pour atteindre précisément la cible de calories de chaque repas.\n"
-        "3) IMPORTANT - ALLERGIES ET PRÉFÉRENCES : Si l'utilisateur présente des allergies (ex. gluten, arachides, poisson), retire ou remplace de manière réaliste et sécurisée l'ingrédient problématique par un équivalent nutritionnel (ex. remplacer les amandes par des graines de tournesol ou de chia en cas d'allergie aux fruits à coque, le poisson par du poulet, etc.).\n"
+        "1) Conserve exactement la structure JSON fournie.\n"
+        "2) ÉVALUE LES ALLERGIES : Si l'utilisateur est allergique à un ingrédient présent dans la liste (ex: poisson, œuf, amandes), substitue cet ingrédient par un équivalent sain et compatible tout en maintenant la même valeur calorique et macro-nutritionnelle (ex: remplacer les œufs par du fromage blanc ou du poulet, le poisson par de la dinde, les amandes par des graines de chia/courge, etc.).\n"
+        "3) Évalue les préférences de l'utilisateur.\n"
         "4) Structure ta réponse au format JSON strict décrit ci-dessous, sans aucun texte introductif, conclusif, ou balise d'explication.\n"
         "\n"
         "Format JSON attendu :\n"
         "{\n"
         "  \"meals\": {\n"
         "    \"breakfast\": {\n"
-        "      \"name\": \"Nom du repas (ex: Light Protein Breakfast / Shour)\",\n"
-        "      \"items\": [\"Ingrédient 1 mis à l'échelle (ex: 3 Boiled Eggs)\", \"Ingrédient 2 (ex: 2 slices Whole Wheat Bread)\"],\n"
+        "      \"name\": \"Nom du repas\",\n"
+        "      \"items\": [\"Portion + Ingrédient 1\", \"Portion + Ingrédient 2\"],\n"
         "      \"calories\": 450,\n"
         "      \"protein\": 30,\n"
         "      \"carbs\": 50,\n"
@@ -746,8 +817,8 @@ def generate_ai_nutrition_plan(user: UserDB, db: Session) -> dict:
     )
     
     user_prompt = (
-        f"Modèle de repas de base pour le profil :\n"
-        f"{json.dumps(daily_plan_template, ensure_ascii=False, indent=2)}\n"
+        f"Plan de repas dynamique calculé pour la cible de {cals} kcal :\n"
+        f"{json.dumps(dynamic_plan, ensure_ascii=False, indent=2)}\n"
         f"\n"
         f"Profil Utilisateur :\n"
         f"- Âge: {user.age} ans\n"
@@ -759,16 +830,10 @@ def generate_ai_nutrition_plan(user: UserDB, db: Session) -> dict:
         f"- Préférences: {user.food_preferences or 'aucune'}\n"
         f"- Mode Ramadan Actif: {'Oui' if user.ramadan_mode else 'Non'}\n"
         f"\n"
-        f"Cibles nutritionnelles quotidiennes de l'utilisateur :\n"
-        f"- Calories: {cals} kcal\n"
-        f"- Protéines: {prot} g\n"
-        f"- Glucides: {carbs} g\n"
-        f"- Lipides: {fat} g\n"
-        f"\n"
         f"Contexte RAG de nutrition locale :\n"
         f"{context_str}\n"
         f"\n"
-        f"Calcule et renvoie le JSON avec les repas mis à l'échelle pour correspondre aux cibles quotidiennes. Assure-toi que la somme des calories de breakfast, lunch, snack, et dinner soit exactement égale à {cals} kcal. Rends les portions et grammages dynamiques et explicites."
+        f"Adapte la terminologie des repas pour un rendu parfait en français. Conserve les calories et macros cibles intactes."
     )
     
     from langchain_core.messages import SystemMessage, HumanMessage
@@ -789,36 +854,13 @@ def generate_ai_nutrition_plan(user: UserDB, db: Session) -> dict:
         return plan_data
     except Exception as e:
         print(f"Error during AI plan generation: {e}")
-        return {
-            "meals": {
-                "breakfast": {
-                    "name": "Shour Protéiné & Hydratant" if user.ramadan_mode else "Bol d'Avoine Protéiné & Fruits Rouges",
-                    "items": ["60g Flocons d'avoine", "30g Whey isolat", "3 Dattes", "15g Graines de chia"] if user.ramadan_mode else ["60g Flocons d'avoine", "30g Whey isolat", "100g Fruits rouges", "15g Graines de chia"],
-                    "calories": int(cals * 0.25), "protein": int(prot * 0.25), "carbs": int(carbs * 0.25), "fat": int(fat * 0.25)
-                },
-                "lunch": {
-                    "name": "Iftar de Rupture Traditionnel" if user.ramadan_mode else "Poulet Basmati Teriyaki & Brocolis",
-                    "items": ["3 Dattes Deglet Nour + Eau", "Bol Soupe Chorba tunisienne", "150g Escalope de poulet grillée", "180g Riz blanc"] if user.ramadan_mode else ["150g Filet de poulet", "150g Riz basmati cuit", "150g Brocolis", "Sauce soja"],
-                    "calories": int(cals * 0.35), "protein": int(prot * 0.35), "carbs": int(carbs * 0.35), "fat": int(fat * 0.35)
-                },
-                "snack": {
-                    "name": "Collation Post-Tarawih" if user.ramadan_mode else "Poignée d'Amandes & Pomme",
-                    "items": ["Shake de Whey", "2 Figues séchées"] if user.ramadan_mode else ["30g Amandes", "1 Pomme"],
-                    "calories": int(cals * 0.12), "protein": int(prot * 0.12), "carbs": int(carbs * 0.12), "fat": int(fat * 0.12)
-                },
-                "dinner": {
-                    "name": "Dîner de Nuit Léger" if user.ramadan_mode else "Filet de Saumon, Patate Douce & Épinards",
-                    "items": ["100g Blanc de poulet", "Salade Méchouia tunisienne", "1 tranche Pain complet"] if user.ramadan_mode else ["130g Saumon", "150g Purée de patate douce", "200g Épinards", "Citron"],
-                    "calories": int(cals * 0.28), "protein": int(prot * 0.28), "carbs": int(carbs * 0.28), "fat": int(fat * 0.28)
-                }
-            },
-            "totals": {
-                "calories": cals,
-                "protein": prot,
-                "carbs": carbs,
-                "fat": fat
-            }
+        dynamic_plan["totals"] = {
+            "calories": cals,
+            "protein": prot,
+            "carbs": carbs,
+            "fat": fat
         }
+        return dynamic_plan
 
 @app.get("/api/nutrition-plan")
 def get_nutrition_plan(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
