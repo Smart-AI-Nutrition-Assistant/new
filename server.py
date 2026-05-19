@@ -653,69 +653,79 @@ def generate_ai_nutrition_plan(user: UserDB, db: Session) -> dict:
     # 1. Fetch RAG context to inject cultural and local realism
     from src.retriever import AdvancedNutritionRetriever
     from src.vectorstore import build_vectorstore
+    from pathlib import Path
     
     vs = build_vectorstore()
     retriever = AdvancedNutritionRetriever(vectorstore=vs)
     docs = retriever.retrieve(f"nutrition tunisienne, plat typique, ramadan, {user.nutrition_goal}")
     context_str = "\n".join([d.page_content for d in docs])
     
-    # 2. Build the LLM prompt
-    from src.agent import get_llm
-    llm = get_llm()
-    
+    # 2. Load the meals dataset to construct a structured plans data system
+    dataset_path = Path("data/meals_dataset.json")
+    dataset = {}
+    if dataset_path.exists():
+        try:
+            with open(dataset_path, "r", encoding="utf-8") as f:
+                dataset = json.load(f)
+        except Exception as e:
+            print(f"Error reading meals dataset: {e}")
+            
     cals = user.calories_target
     prot = user.protein_target
     carbs = user.carbs_target
     fat = user.fat_target
     
+    # Resolve structured tier
+    if cals < 1600:
+        tier = "low_calorie"
+    elif cals <= 2450:
+        tier = "medium_calorie"
+    else:
+        tier = "high_calorie"
+        
+    mode_key = "ramadan" if user.ramadan_mode else "standard"
+    tier_data = dataset.get(tier, {}).get(mode_key, {})
+    
+    # 3. Build the LLM prompt
+    from src.agent import get_llm
+    llm = get_llm()
+    
     system_prompt = (
-        "Tu es un nutritionniste clinicien expert spécialisé dans le contexte tunisien et les régimes adaptés.\n"
-        "Génère un plan de repas quotidien complet et réaliste équilibrant exactement les calories et les macros demandées.\n"
-        "Tu dois impérativement répondre au format JSON strict décrit ci-dessous, sans aucune autre explication ou balises markdown complexes.\n"
+        "Tu es un expert en nutrition clinique et coach de fitness diplômé spécialisé en diététique tunisienne.\n"
+        "Ta mission est de prendre le modèle de repas structuré fourni, de l'adapter rigoureusement au profil de l'utilisateur, "
+        "et d'effectuer le calcul précis des portions pour correspondre EXACTEMENT aux cibles caloriques et macro-nutritionnelles journalières.\n"
         "\n"
-        "Format JSON demandé :\n"
+        "Règles absolues :\n"
+        "1) Utilise obligatoirement les noms et structures de repas du modèle ci-dessous comme fondation de ton plan.\n"
+        "2) Redimensionne proportionnellement chaque ingrédient et ses portions (par exemple, augmente le grammage des flocons d'avoine, de riz ou de poisson) pour atteindre précisément la cible de calories de chaque repas.\n"
+        "3) IMPORTANT - ALLERGIES ET PRÉFÉRENCES : Si l'utilisateur présente des allergies (ex. gluten, arachides, poisson), retire ou remplace de manière réaliste et sécurisée l'ingrédient problématique par un équivalent nutritionnel (ex. remplacer les amandes par des graines de tournesol ou de chia en cas d'allergie aux fruits à coque, le poisson par du poulet, etc.).\n"
+        "4) Structure ta réponse au format JSON strict décrit ci-dessous, sans aucun texte introductif, conclusif, ou balise d'explication.\n"
+        "\n"
+        "Format JSON attendu :\n"
         "{\n"
         "  \"meals\": {\n"
         "    \"breakfast\": {\n"
-        "      \"name\": \"Nom réaliste du repas (ex: Shour Complet ou Petit-déjeuner Avoine)\",\n"
-        "      \"items\": [\"Ingrédient 1 avec grammage précis (ex: 60g de flocons d'avoine)\", \"Ingrédient 2 (ex: 3 dattes Deglet Nour)\"],\n"
-        "      \"calories\": 400,\n"
-        "      \"protein\": 25,\n"
+        "      \"name\": \"Nom du repas (ex: Petit-déjeuner Avoine & Baies sauvages)\",\n"
+        "      \"items\": [\"Ingrédient 1 mis à l'échelle (ex: 80g de flocons d'avoine)\", \"Ingrédient 2 (ex: 30g de Whey isolat)\"],\n"
+        "      \"calories\": 450,\n"
+        "      \"protein\": 30,\n"
         "      \"carbs\": 50,\n"
-        "      \"fat\": 10\n"
-        "    },\n"
-        "    \"lunch\": {\n"
-        "      \"name\": \"...\",\n"
-        "      \"items\": [...],\n"
-        "      \"calories\": 650,\n"
-        "      \"protein\": 45,\n"
-        "      \"carbs\": 70,\n"
         "      \"fat\": 15\n"
         "    },\n"
-        "    \"snack\": {\n"
-        "      \"name\": \"...\",\n"
-        "      \"items\": [...],\n"
-        "      \"calories\": 250,\n"
-        "      \"protein\": 15,\n"
-        "      \"carbs\": 30,\n"
-        "      \"fat\": 8\n"
-        "    },\n"
-        "    \"dinner\": {\n"
-        "      \"name\": \"...\",\n"
-        "      \"items\": [...],\n"
-        "      \"calories\": 500,\n"
-        "      \"protein\": 35,\n"
-        "      \"carbs\": 50,\n"
-        "      \"fat\": 12\n"
-        "    }\n"
+        "    \"lunch\": { ... },\n"
+        "    \"snack\": { ... },\n"
+        "    \"dinner\": { ... }\n"
         "  }\n"
         "}"
     )
     
     user_prompt = (
-        f"Profil de l'utilisateur :\n"
-        f"- Sexe: {user.gender}\n"
+        f"Modèle de repas de base pour le profil (Tier: {tier}, Mode: {mode_key}) :\n"
+        f"{json.dumps(tier_data, ensure_ascii=False, indent=2)}\n"
+        f"\n"
+        f"Profil Utilisateur :\n"
         f"- Âge: {user.age} ans\n"
+        f"- Sexe: {user.gender}\n"
         f"- Poids: {user.weight} kg\n"
         f"- Taille: {user.height} cm\n"
         f"- Objectif: {user.nutrition_goal}\n"
@@ -723,17 +733,16 @@ def generate_ai_nutrition_plan(user: UserDB, db: Session) -> dict:
         f"- Préférences: {user.food_preferences or 'aucune'}\n"
         f"- Mode Ramadan Actif: {'Oui' if user.ramadan_mode else 'Non'}\n"
         f"\n"
-        f"Cibles nutritionnelles journalières :\n"
+        f"Cibles nutritionnelles quotidiennes de l'utilisateur :\n"
         f"- Calories: {cals} kcal\n"
         f"- Protéines: {prot} g\n"
         f"- Glucides: {carbs} g\n"
         f"- Lipides: {fat} g\n"
         f"\n"
-        f"Contexte RAG local :\n"
+        f"Contexte RAG de nutrition locale :\n"
         f"{context_str}\n"
         f"\n"
-        f"Génère le plan de repas quotidien au format JSON en respectant scrupuleusement les calories et les macros cibles. "
-        f"Si le mode Ramadan est actif, 'breakfast' représentera le Shour, 'lunch' l'Iftar, 'snack' la collation post-Tarawih, et 'dinner' le dîner de nuit."
+        f"Calcule et renvoie le JSON avec les repas mis à l'échelle pour correspondre aux cibles quotidiennes. Assure-toi que la somme des calories de breakfast, lunch, snack, et dinner soit exactement égale à {cals} kcal."
     )
     
     from langchain_core.messages import SystemMessage, HumanMessage
