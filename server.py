@@ -675,16 +675,42 @@ def generate_ai_nutrition_plan(user: UserDB, db: Session) -> dict:
     carbs = user.carbs_target
     fat = user.fat_target
     
-    # Resolve structured tier
-    if cals < 1600:
-        tier = "low_calorie"
-    elif cals <= 2450:
-        tier = "medium_calorie"
-    else:
-        tier = "high_calorie"
+    # Map user goal string to dataset goal keys
+    goal_mapping = {
+        "perdre_poids": "weight_loss",
+        "maintenir": "maintenance",
+        "prendre_masse": "muscle_gain"
+    }
+    mapped_goal = goal_mapping.get(user.nutrition_goal, "maintenance")
+    
+    plans_list = dataset.get("plans", [])
+    matched_plan = None
+    
+    # Try finding plan matching both goal and calorie bounds
+    for p in plans_list:
+        if p.get("goal") == mapped_goal and p.get("min_calories") <= cals <= p.get("max_calories"):
+            matched_plan = p
+            break
+            
+    # Fallback to goal match only
+    if not matched_plan:
+        for p in plans_list:
+            if p.get("goal") == mapped_goal:
+                matched_plan = p
+                break
+                
+    # Fallback to calorie bounds match only
+    if not matched_plan:
+        for p in plans_list:
+            if p.get("min_calories") <= cals <= p.get("max_calories"):
+                matched_plan = p
+                break
+                
+    # Fallback to the first plan in list
+    if not matched_plan and plans_list:
+        matched_plan = plans_list[0]
         
-    mode_key = "ramadan" if user.ramadan_mode else "standard"
-    tier_data = dataset.get(tier, {}).get(mode_key, {})
+    daily_plan_template = matched_plan.get("daily_plan", {}) if matched_plan else {}
     
     # 3. Build the LLM prompt
     from src.agent import get_llm
@@ -696,8 +722,8 @@ def generate_ai_nutrition_plan(user: UserDB, db: Session) -> dict:
         "et d'effectuer le calcul précis des portions pour correspondre EXACTEMENT aux cibles caloriques et macro-nutritionnelles journalières.\n"
         "\n"
         "Règles absolues :\n"
-        "1) Utilise obligatoirement les noms et structures de repas du modèle ci-dessous comme fondation de ton plan.\n"
-        "2) Redimensionne proportionnellement chaque ingrédient et ses portions (par exemple, augmente le grammage des flocons d'avoine, de riz ou de poisson) pour atteindre précisément la cible de calories de chaque repas.\n"
+        "1) Utilise obligatoirement les noms et structures de repas du modèle de base ci-dessous comme fondation de ton plan.\n"
+        "2) Redimensionne proportionnellement chaque aliment et ses portions (par exemple, augmente/diminue le grammage de la dinde, du riz blanc, des amandes, de l'avoine ou du poisson) pour atteindre précisément la cible de calories de chaque repas.\n"
         "3) IMPORTANT - ALLERGIES ET PRÉFÉRENCES : Si l'utilisateur présente des allergies (ex. gluten, arachides, poisson), retire ou remplace de manière réaliste et sécurisée l'ingrédient problématique par un équivalent nutritionnel (ex. remplacer les amandes par des graines de tournesol ou de chia en cas d'allergie aux fruits à coque, le poisson par du poulet, etc.).\n"
         "4) Structure ta réponse au format JSON strict décrit ci-dessous, sans aucun texte introductif, conclusif, ou balise d'explication.\n"
         "\n"
@@ -705,8 +731,8 @@ def generate_ai_nutrition_plan(user: UserDB, db: Session) -> dict:
         "{\n"
         "  \"meals\": {\n"
         "    \"breakfast\": {\n"
-        "      \"name\": \"Nom du repas (ex: Petit-déjeuner Avoine & Baies sauvages)\",\n"
-        "      \"items\": [\"Ingrédient 1 mis à l'échelle (ex: 80g de flocons d'avoine)\", \"Ingrédient 2 (ex: 30g de Whey isolat)\"],\n"
+        "      \"name\": \"Nom du repas (ex: Light Protein Breakfast / Shour)\",\n"
+        "      \"items\": [\"Ingrédient 1 mis à l'échelle (ex: 3 Boiled Eggs)\", \"Ingrédient 2 (ex: 2 slices Whole Wheat Bread)\"],\n"
         "      \"calories\": 450,\n"
         "      \"protein\": 30,\n"
         "      \"carbs\": 50,\n"
@@ -720,8 +746,8 @@ def generate_ai_nutrition_plan(user: UserDB, db: Session) -> dict:
     )
     
     user_prompt = (
-        f"Modèle de repas de base pour le profil (Tier: {tier}, Mode: {mode_key}) :\n"
-        f"{json.dumps(tier_data, ensure_ascii=False, indent=2)}\n"
+        f"Modèle de repas de base pour le profil :\n"
+        f"{json.dumps(daily_plan_template, ensure_ascii=False, indent=2)}\n"
         f"\n"
         f"Profil Utilisateur :\n"
         f"- Âge: {user.age} ans\n"
@@ -742,7 +768,7 @@ def generate_ai_nutrition_plan(user: UserDB, db: Session) -> dict:
         f"Contexte RAG de nutrition locale :\n"
         f"{context_str}\n"
         f"\n"
-        f"Calcule et renvoie le JSON avec les repas mis à l'échelle pour correspondre aux cibles quotidiennes. Assure-toi que la somme des calories de breakfast, lunch, snack, et dinner soit exactement égale à {cals} kcal."
+        f"Calcule et renvoie le JSON avec les repas mis à l'échelle pour correspondre aux cibles quotidiennes. Assure-toi que la somme des calories de breakfast, lunch, snack, et dinner soit exactement égale à {cals} kcal. Rends les portions et grammages dynamiques et explicites."
     )
     
     from langchain_core.messages import SystemMessage, HumanMessage

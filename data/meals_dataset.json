@@ -1,304 +1,350 @@
 {
-  "low_calorie": {
-    "standard": {
-      "breakfast": {
-        "name": "Bol Avoine Léger & Whey",
-        "items": [
-          "{scale_1}g de flocons d'avoine fins",
-          "20g de Whey isolat",
-          "60g de baies sauvages",
-          "1 cuillère à café de graines de chia"
-        ],
-        "protein_ratio": 0.35,
-        "carb_ratio": 0.45,
-        "fat_ratio": 0.20
-      },
-      "lunch": {
-        "name": "Salade Tunisienne au Thon & Blanc d'Œuf",
-        "items": [
-          "150g de Blanc de poulet poêlé ou 1 boîte de thon au naturel (80g)",
-          "1 œuf dur (sans le jaune pour limiter le gras)",
-          "150g de laitue, concombre, tomates fraîches",
-          "1 cuillère à café d'huile d'olive extra-vierge"
-        ],
-        "protein_ratio": 0.40,
-        "carb_ratio": 0.30,
-        "fat_ratio": 0.30
-      },
-      "snack": {
-        "name": "Pomme & Poignée d'Amandes",
-        "items": [
-          "1 pomme verte croquante moyenne",
-          "15g d'amandes douces naturelles"
-        ],
-        "protein_ratio": 0.15,
-        "carb_ratio": 0.55,
-        "fat_ratio": 0.30
-      },
-      "dinner": {
-        "name": "Pavé de Colin Vapeur & Purée de Courge",
-        "items": [
-          "120g de filet de colin ou cabillaud cuit à la vapeur",
-          "150g de purée de courgette ou courge",
-          "100g de quinoa cuit",
-          "Jus de citron frais"
-        ],
-        "protein_ratio": 0.35,
-        "carb_ratio": 0.45,
-        "fat_ratio": 0.20
+  "plans": [
+    {
+      "id": 1,
+      "goal": "weight_loss",
+      "min_calories": 1200,
+      "max_calories": 1500,
+      "daily_plan": {
+        "breakfast": {
+          "meal_name": "Light Protein Breakfast / Shour",
+          "foods": [
+            {
+              "name": "Boiled Eggs",
+              "quantity": "2",
+              "calories": 140,
+              "protein": 12,
+              "carbs": 1,
+              "fat": 10
+            },
+            {
+              "name": "Whole Wheat Bread",
+              "quantity": "2 slices",
+              "calories": 120,
+              "protein": 6,
+              "carbs": 20,
+              "fat": 2
+            },
+            {
+              "name": "Apple",
+              "quantity": "1 medium",
+              "calories": 95,
+              "protein": 0,
+              "carbs": 25,
+              "fat": 0
+            }
+          ],
+          "total_calories": 355
+        },
+        "lunch": {
+          "meal_name": "Chicken Rice Bowl / Iftar Protéiné",
+          "foods": [
+            {
+              "name": "Grilled Chicken Breast",
+              "quantity": "150g",
+              "calories": 250,
+              "protein": 35,
+              "carbs": 0,
+              "fat": 5
+            },
+            {
+              "name": "Brown Rice",
+              "quantity": "100g",
+              "calories": 130,
+              "protein": 3,
+              "carbs": 28,
+              "fat": 1
+            },
+            {
+              "name": "Green Salad with Olive Oil",
+              "quantity": "1 bowl",
+              "calories": 50,
+              "protein": 2,
+              "carbs": 10,
+              "fat": 0
+            }
+          ],
+          "total_calories": 430
+        },
+        "dinner": {
+          "meal_name": "Healthy Soup Dinner / Repas de Nuit",
+          "foods": [
+            {
+              "name": "Vegetable Soup",
+              "quantity": "1 bowl",
+              "calories": 180,
+              "protein": 6,
+              "carbs": 20,
+              "fat": 5
+            },
+            {
+              "name": "Greek Yogurt",
+              "quantity": "1 cup",
+              "calories": 100,
+              "protein": 10,
+              "carbs": 5,
+              "fat": 3
+            }
+          ],
+          "total_calories": 280
+        },
+        "snack": {
+          "meal_name": "Healthy Snacks",
+          "foods": [
+            {
+              "name": "Almonds",
+              "quantity": "10 pieces",
+              "calories": 80,
+              "protein": 3,
+              "carbs": 3,
+              "fat": 7
+            },
+            {
+              "name": "Banana",
+              "quantity": "1 small",
+              "calories": 90,
+              "protein": 1,
+              "carbs": 23,
+              "fat": 0
+            }
+          ],
+          "total_calories": 170
+        },
+        "daily_totals": {
+          "calories": 1235,
+          "protein": 78,
+          "carbs": 135,
+          "fat": 33
+        }
       }
     },
-    "ramadan": {
-      "breakfast": {
-        "name": "Shour Hydratant Light",
-        "items": [
-          "150g de Fromage blanc 0%",
-          "30g de flocons d'avoine",
-          "1 datte Deglet Nour",
-          "Grand verre d'eau infusée au concombre"
-        ],
-        "protein_ratio": 0.35,
-        "carb_ratio": 0.45,
-        "fat_ratio": 0.20
-      },
-      "lunch": {
-        "name": "Iftar Léger de Rupture",
-        "items": [
-          "1 datte Deglet Nour + 2 grands verres d'eau",
-          "1 bol de Soupe Chorba tunisienne sans gras",
-          "120g d'escalope de dinde grillée",
-          "100g de riz blanc cuit",
-          "Salade Mechouia tunisienne"
-        ],
-        "protein_ratio": 0.38,
-        "carb_ratio": 0.42,
-        "fat_ratio": 0.20
-      },
-      "snack": {
-        "name": "Collation Post-Tarawih Coupe-Faim",
-        "items": [
-          "20g de protéines de Whey",
-          "1 tasse de thé vert sans sucre"
-        ],
-        "protein_ratio": 0.70,
-        "carb_ratio": 0.20,
-        "fat_ratio": 0.10
-      },
-      "dinner": {
-        "name": "Dîner Léger de Nuit",
-        "items": [
-          "100g de filet de poisson blanc grillé",
-          "Salade de concombres et tomates",
-          "1/2 tranche de pain complet tunisien"
-        ],
-        "protein_ratio": 0.40,
-        "carb_ratio": 0.35,
-        "fat_ratio": 0.25
-      }
-    }
-  },
-  "medium_calorie": {
-    "standard": {
-      "breakfast": {
-        "name": "Petit-déjeuner Énergie & Protéines",
-        "items": [
-          "{scale_1}g de flocons d'avoine complets",
-          "30g de Whey isolat",
-          "100g de fruits rouges frais",
-          "15g de graines de chia ou lin",
-          "150ml de lait d'amande sans sucre"
-        ],
-        "protein_ratio": 0.30,
-        "carb_ratio": 0.45,
-        "fat_ratio": 0.25
-      },
-      "lunch": {
-        "name": "Poulet Basmati Teriyaki & Brocolis",
-        "items": [
-          "150g de filet de poulet cuit",
-          "150g de riz basmati cuit",
-          "150g de brocolis vapeur",
-          "1 cuillère à café de sauce soja réduite en sodium",
-          "1 cuillère à café d'huile de sésame"
-        ],
-        "protein_ratio": 0.35,
-        "carb_ratio": 0.45,
-        "fat_ratio": 0.20
-      },
-      "snack": {
-        "name": "Poignée d'Amandes & Banane",
-        "items": [
-          "1 banane moyenne",
-          "30g d'amandes entières"
-        ],
-        "protein_ratio": 0.12,
-        "carb_ratio": 0.53,
-        "fat_ratio": 0.35
-      },
-      "dinner": {
-        "name": "Filet de Saumon Grillé & Patate Douce",
-        "items": [
-          "130g de filet de saumon sauvage grillé",
-          "150g de purée de patate douce",
-          "200g d'épinards frais sautés",
-          "1 cuillère à café d'huile d'olive"
-        ],
-        "protein_ratio": 0.30,
-        "carb_ratio": 0.40,
-        "fat_ratio": 0.30
-      }
-    },
-    "ramadan": {
-      "breakfast": {
-        "name": "Shour Protéines Lentes & Lipides Sains",
-        "items": [
-          "150g de Fromage blanc 0%",
-          "50g de flocons d'avoine",
-          "1 banane moyenne",
-          "30g de noix ou amandes décortiquées",
-          "Grand verre d'eau"
-        ],
-        "protein_ratio": 0.28,
-        "carb_ratio": 0.45,
-        "fat_ratio": 0.27
-      },
-      "lunch": {
-        "name": "Iftar de Rupture Équilibré",
-        "items": [
-          "3 dattes Deglet Nour + Eau fraîche",
-          "1 bol de Soupe Chorba tunisienne",
-          "150g de filet de poulet grillé",
-          "180g de riz blanc cuit",
-          "Salade fraîche aux olives"
-        ],
-        "protein_ratio": 0.30,
-        "carb_ratio": 0.48,
-        "fat_ratio": 0.22
-      },
-      "snack": {
-        "name": "Collation Récupération Tarawih",
-        "items": [
-          "30g de protéines de Whey",
-          "2 figues séchées ou dattes"
-        ],
-        "protein_ratio": 0.50,
-        "carb_ratio": 0.40,
-        "fat_ratio": 0.10
-      },
-      "dinner": {
-        "name": "Dîner Réhydratation de Nuit",
-        "items": [
-          "120g de filet de dorade ou loup grillé",
-          "Salade Méchouia tunisienne",
-          "1 tranche de pain complet tunisien",
-          "Tranche de pastèque pour l'hydratation"
-        ],
-        "protein_ratio": 0.35,
-        "carb_ratio": 0.40,
-        "fat_ratio": 0.25
-      }
-    }
-  },
-  "high_calorie": {
-    "standard": {
-      "breakfast": {
-        "name": "Super Bol de l'Athlète",
-        "items": [
-          "{scale_1}g de flocons d'avoine complets",
-          "40g de Whey isolat",
-          "150g de bananes et fruits rouges",
-          "30g de beurre de cacahuète pur",
-          "250ml de lait demi-écrémé"
-        ],
-        "protein_ratio": 0.28,
-        "carb_ratio": 0.47,
-        "fat_ratio": 0.25
-      },
-      "lunch": {
-        "name": "Couscous Complet Tunisien au Poisson",
-        "items": [
-          "180g de couscous complet tunisien cuit",
-          "200g de filet de mérou ou daurade grillé",
-          "Mélange riche de pois chiches et courgettes cuites",
-          "2 cuillères à café d'huile d'olive extra-vierge"
-        ],
-        "protein_ratio": 0.32,
-        "carb_ratio": 0.48,
-        "fat_ratio": 0.20
-      },
-      "snack": {
-        "name": "Collation Gainer Naturel",
-        "items": [
-          "2 tranches de pain complet grillé",
-          "1 avocat entier écrasé",
-          "2 œufs entiers durs"
-        ],
-        "protein_ratio": 0.22,
-        "carb_ratio": 0.38,
-        "fat_ratio": 0.40
-      },
-      "dinner": {
-        "name": "Bœuf Sauté au Quinoa & Brocolis",
-        "items": [
-          "180g de steak de bœuf extra-maigre émincé",
-          "200g de quinoa cuit",
-          "200g de brocolis sautés à l'ail",
-          "1 cuillère à soupe d'huile d'olive"
-        ],
-        "protein_ratio": 0.30,
-        "carb_ratio": 0.45,
-        "fat_ratio": 0.25
+    {
+      "id": 2,
+      "goal": "maintenance",
+      "min_calories": 1501,
+      "max_calories": 2050,
+      "daily_plan": {
+        "breakfast": {
+          "meal_name": "Balanced Breakfast / Shour Complet",
+          "foods": [
+            {
+              "name": "Oatmeal",
+              "quantity": "80g",
+              "calories": 300,
+              "protein": 10,
+              "carbs": 54,
+              "fat": 5
+            },
+            {
+              "name": "Milk",
+              "quantity": "250ml",
+              "calories": 120,
+              "protein": 8,
+              "carbs": 12,
+              "fat": 5
+            },
+            {
+              "name": "Banana",
+              "quantity": "1 medium",
+              "calories": 105,
+              "protein": 1,
+              "carbs": 27,
+              "fat": 0
+            }
+          ],
+          "total_calories": 525
+        },
+        "lunch": {
+          "meal_name": "Protein Lunch / Iftar Équilibré",
+          "foods": [
+            {
+              "name": "Turkey Breast",
+              "quantity": "200g",
+              "calories": 320,
+              "protein": 45,
+              "carbs": 0,
+              "fat": 8
+            },
+            {
+              "name": "Sweet Potato",
+              "quantity": "200g",
+              "calories": 180,
+              "protein": 4,
+              "carbs": 41,
+              "fat": 0
+            },
+            {
+              "name": "Steamed Vegetables",
+              "quantity": "1 bowl",
+              "calories": 90,
+              "protein": 4,
+              "carbs": 15,
+              "fat": 1
+            }
+          ],
+          "total_calories": 590
+        },
+        "dinner": {
+          "meal_name": "Light Dinner / Dîner Hydratant",
+          "foods": [
+            {
+              "name": "Grilled Salmon",
+              "quantity": "150g",
+              "calories": 300,
+              "protein": 30,
+              "carbs": 0,
+              "fat": 18
+            },
+            {
+              "name": "Rice",
+              "quantity": "100g",
+              "calories": 130,
+              "protein": 3,
+              "carbs": 28,
+              "fat": 1
+            }
+          ],
+          "total_calories": 430
+        },
+        "snack": {
+          "meal_name": "Protein Bar Snack",
+          "foods": [
+            {
+              "name": "Protein Bar",
+              "quantity": "1",
+              "calories": 200,
+              "protein": 20,
+              "carbs": 18,
+              "fat": 7
+            }
+          ],
+          "total_calories": 200
+        },
+        "daily_totals": {
+          "calories": 1745,
+          "protein": 125,
+          "carbs": 195,
+          "fat": 45
+        }
       }
     },
-    "ramadan": {
-      "breakfast": {
-        "name": "Shour Athlète Ramadan",
-        "items": [
-          "200g de Fromage blanc 0% ou yaourt grec",
-          "80g de flocons d'avoine",
-          "1 grosse banane",
-          "40g d'amandes et raisins secs",
-          "1 cuillère à soupe de miel pur"
-        ],
-        "protein_ratio": 0.25,
-        "carb_ratio": 0.50,
-        "fat_ratio": 0.25
-      },
-      "lunch": {
-        "name": "Iftar Copieux & Réhydratation",
-        "items": [
-          "3 dattes Deglet Nour + Eau fraîche",
-          "1 grand bol de Soupe Chorba tunisienne au poulet",
-          "1 brik tunisienne au thon et œuf cuite au four (sans friture)",
-          "180g de couscous au poisson",
-          "Salade tunisienne variée"
-        ],
-        "protein_ratio": 0.30,
-        "carb_ratio": 0.48,
-        "fat_ratio": 0.22
-      },
-      "snack": {
-        "name": "Collation Anabolique Tarawih",
-        "items": [
-          "40g de protéines de Whey",
-          "3 figues séchées + 20g de chocolat noir 85%"
-        ],
-        "protein_ratio": 0.45,
-        "carb_ratio": 0.40,
-        "fat_ratio": 0.15
-      },
-      "dinner": {
-        "name": "Dîner Mass Gainer Nocturne",
-        "items": [
-          "150g d'escalope de poulet grillée",
-          "Lablabi tunisien riche (pois chiches, ail, cumin, thon, œuf poché)",
-          "1 tranche de pain complet",
-          "Tranche de melon ou pastèque"
-        ],
-        "protein_ratio": 0.33,
-        "carb_ratio": 0.45,
-        "fat_ratio": 0.22
+    {
+      "id": 3,
+      "goal": "muscle_gain",
+      "min_calories": 2051,
+      "max_calories": 4000,
+      "daily_plan": {
+        "breakfast": {
+          "meal_name": "Mass Gainer Breakfast / Shour Énergie",
+          "foods": [
+            {
+              "name": "Oats",
+              "quantity": "100g",
+              "calories": 380,
+              "protein": 13,
+              "carbs": 67,
+              "fat": 7
+            },
+            {
+              "name": "Peanut Butter",
+              "quantity": "2 tbsp",
+              "calories": 190,
+              "protein": 8,
+              "carbs": 6,
+              "fat": 16
+            },
+            {
+              "name": "Protein Shake",
+              "quantity": "1 serving",
+              "calories": 220,
+              "protein": 30,
+              "carbs": 8,
+              "fat": 4
+            }
+          ],
+          "total_calories": 790
+        },
+        "lunch": {
+          "meal_name": "Heavy Protein Meal / Couscous Poisson Riche",
+          "foods": [
+            {
+              "name": "Beef Steak / Filet de Mérou",
+              "quantity": "250g",
+              "calories": 500,
+              "protein": 55,
+              "carbs": 0,
+              "fat": 28
+            },
+            {
+              "name": "White Rice",
+              "quantity": "250g",
+              "calories": 325,
+              "protein": 6,
+              "carbs": 72,
+              "fat": 1
+            },
+            {
+              "name": "Avocado",
+              "quantity": "1 medium",
+              "calories": 240,
+              "protein": 3,
+              "carbs": 12,
+              "fat": 21
+            }
+          ],
+          "total_calories": 1065
+        },
+        "dinner": {
+          "meal_name": "Recovery Dinner / Lablabi Athlète",
+          "foods": [
+            {
+              "name": "Chicken Breast",
+              "quantity": "250g",
+              "calories": 410,
+              "protein": 60,
+              "carbs": 0,
+              "fat": 8
+            },
+            {
+              "name": "Pasta",
+              "quantity": "200g",
+              "calories": 320,
+              "protein": 12,
+              "carbs": 65,
+              "fat": 2
+            }
+          ],
+          "total_calories": 730
+        },
+        "snack": {
+          "meal_name": "Anabolic Snack / Fruits Secs",
+          "foods": [
+            {
+              "name": "Mixed Nuts",
+              "quantity": "50g",
+              "calories": 300,
+              "protein": 10,
+              "carbs": 12,
+              "fat": 25
+            },
+            {
+              "name": "Greek Yogurt",
+              "quantity": "1 cup",
+              "calories": 150,
+              "protein": 15,
+              "carbs": 8,
+              "fat": 5
+            }
+          ],
+          "total_calories": 450
+        },
+        "daily_totals": {
+          "calories": 3035,
+          "protein": 212,
+          "carbs": 250,
+          "fat": 117
+        }
       }
     }
-  }
+  ]
 }
