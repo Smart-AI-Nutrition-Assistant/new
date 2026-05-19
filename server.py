@@ -104,6 +104,13 @@ class ChatMessageDB(Base):
     content = Column(Text)
     created_at = Column(DateTime, default=datetime.now)
 
+class NutritionPlanDB(Base):
+    __tablename__ = "nutrition_plans"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, index=True, unique=True)
+    plan_json = Column(Text)
+    created_at = Column(DateTime, default=datetime.now)
+
 # Create tables
 Base.metadata.create_all(bind=engine)
 
@@ -642,45 +649,190 @@ def get_chat_suggestions(user_id: int = Depends(get_current_user_id), db: Sessio
         
     return suggestions
 
+def generate_ai_nutrition_plan(user: UserDB, db: Session) -> dict:
+    # 1. Fetch RAG context to inject cultural and local realism
+    from src.retriever import AdvancedNutritionRetriever
+    from src.vectorstore import build_vectorstore
+    
+    vs = build_vectorstore()
+    retriever = AdvancedNutritionRetriever(vectorstore=vs)
+    docs = retriever.retrieve(f"nutrition tunisienne, plat typique, ramadan, {user.nutrition_goal}")
+    context_str = "\n".join([d.page_content for d in docs])
+    
+    # 2. Build the LLM prompt
+    from src.agent import get_llm
+    llm = get_llm()
+    
+    cals = user.calories_target
+    prot = user.protein_target
+    carbs = user.carbs_target
+    fat = user.fat_target
+    
+    system_prompt = (
+        "Tu es un nutritionniste clinicien expert spécialisé dans le contexte tunisien et les régimes adaptés.\n"
+        "Génère un plan de repas quotidien complet et réaliste équilibrant exactement les calories et les macros demandées.\n"
+        "Tu dois impérativement répondre au format JSON strict décrit ci-dessous, sans aucune autre explication ou balises markdown complexes.\n"
+        "\n"
+        "Format JSON demandé :\n"
+        "{\n"
+        "  \"meals\": {\n"
+        "    \"breakfast\": {\n"
+        "      \"name\": \"Nom réaliste du repas (ex: Shour Complet ou Petit-déjeuner Avoine)\",\n"
+        "      \"items\": [\"Ingrédient 1 avec grammage précis (ex: 60g de flocons d'avoine)\", \"Ingrédient 2 (ex: 3 dattes Deglet Nour)\"],\n"
+        "      \"calories\": 400,\n"
+        "      \"protein\": 25,\n"
+        "      \"carbs\": 50,\n"
+        "      \"fat\": 10\n"
+        "    },\n"
+        "    \"lunch\": {\n"
+        "      \"name\": \"...\",\n"
+        "      \"items\": [...],\n"
+        "      \"calories\": 650,\n"
+        "      \"protein\": 45,\n"
+        "      \"carbs\": 70,\n"
+        "      \"fat\": 15\n"
+        "    },\n"
+        "    \"snack\": {\n"
+        "      \"name\": \"...\",\n"
+        "      \"items\": [...],\n"
+        "      \"calories\": 250,\n"
+        "      \"protein\": 15,\n"
+        "      \"carbs\": 30,\n"
+        "      \"fat\": 8\n"
+        "    },\n"
+        "    \"dinner\": {\n"
+        "      \"name\": \"...\",\n"
+        "      \"items\": [...],\n"
+        "      \"calories\": 500,\n"
+        "      \"protein\": 35,\n"
+        "      \"carbs\": 50,\n"
+        "      \"fat\": 12\n"
+        "    }\n"
+        "  }\n"
+        "}"
+    )
+    
+    user_prompt = (
+        f"Profil de l'utilisateur :\n"
+        f"- Sexe: {user.gender}\n"
+        f"- Âge: {user.age} ans\n"
+        f"- Poids: {user.weight} kg\n"
+        f"- Taille: {user.height} cm\n"
+        f"- Objectif: {user.nutrition_goal}\n"
+        f"- Allergies: {user.allergies or 'aucune'}\n"
+        f"- Préférences: {user.food_preferences or 'aucune'}\n"
+        f"- Mode Ramadan Actif: {'Oui' if user.ramadan_mode else 'Non'}\n"
+        f"\n"
+        f"Cibles nutritionnelles journalières :\n"
+        f"- Calories: {cals} kcal\n"
+        f"- Protéines: {prot} g\n"
+        f"- Glucides: {carbs} g\n"
+        f"- Lipides: {fat} g\n"
+        f"\n"
+        f"Contexte RAG local :\n"
+        f"{context_str}\n"
+        f"\n"
+        f"Génère le plan de repas quotidien au format JSON en respectant scrupuleusement les calories et les macros cibles. "
+        f"Si le mode Ramadan est actif, 'breakfast' représentera le Shour, 'lunch' l'Iftar, 'snack' la collation post-Tarawih, et 'dinner' le dîner de nuit."
+    )
+    
+    from langchain_core.messages import SystemMessage, HumanMessage
+    try:
+        response = llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt)
+        ])
+        content = response.content if hasattr(response, 'content') else str(response)
+        content = content.replace("```json", "").replace("```", "").strip()
+        plan_data = json.loads(content)
+        plan_data["totals"] = {
+            "calories": cals,
+            "protein": prot,
+            "carbs": carbs,
+            "fat": fat
+        }
+        return plan_data
+    except Exception as e:
+        print(f"Error during AI plan generation: {e}")
+        return {
+            "meals": {
+                "breakfast": {
+                    "name": "Shour Protéiné & Hydratant" if user.ramadan_mode else "Bol d'Avoine Protéiné & Fruits Rouges",
+                    "items": ["60g Flocons d'avoine", "30g Whey isolat", "3 Dattes", "15g Graines de chia"] if user.ramadan_mode else ["60g Flocons d'avoine", "30g Whey isolat", "100g Fruits rouges", "15g Graines de chia"],
+                    "calories": int(cals * 0.25), "protein": int(prot * 0.25), "carbs": int(carbs * 0.25), "fat": int(fat * 0.25)
+                },
+                "lunch": {
+                    "name": "Iftar de Rupture Traditionnel" if user.ramadan_mode else "Poulet Basmati Teriyaki & Brocolis",
+                    "items": ["3 Dattes Deglet Nour + Eau", "Bol Soupe Chorba tunisienne", "150g Escalope de poulet grillée", "180g Riz blanc"] if user.ramadan_mode else ["150g Filet de poulet", "150g Riz basmati cuit", "150g Brocolis", "Sauce soja"],
+                    "calories": int(cals * 0.35), "protein": int(prot * 0.35), "carbs": int(carbs * 0.35), "fat": int(fat * 0.35)
+                },
+                "snack": {
+                    "name": "Collation Post-Tarawih" if user.ramadan_mode else "Poignée d'Amandes & Pomme",
+                    "items": ["Shake de Whey", "2 Figues séchées"] if user.ramadan_mode else ["30g Amandes", "1 Pomme"],
+                    "calories": int(cals * 0.12), "protein": int(prot * 0.12), "carbs": int(carbs * 0.12), "fat": int(fat * 0.12)
+                },
+                "dinner": {
+                    "name": "Dîner de Nuit Léger" if user.ramadan_mode else "Filet de Saumon, Patate Douce & Épinards",
+                    "items": ["100g Blanc de poulet", "Salade Méchouia tunisienne", "1 tranche Pain complet"] if user.ramadan_mode else ["130g Saumon", "150g Purée de patate douce", "200g Épinards", "Citron"],
+                    "calories": int(cals * 0.28), "protein": int(prot * 0.28), "carbs": int(carbs * 0.28), "fat": int(fat * 0.28)
+                }
+            },
+            "totals": {
+                "calories": cals,
+                "protein": prot,
+                "carbs": carbs,
+                "fat": fat
+            }
+        }
+
 @app.get("/api/nutrition-plan")
 def get_nutrition_plan(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
     user = db.query(UserDB).filter(UserDB.id == user_id).first()
-    cals = user.calories_target if (user and user.profile_completed) else 2000
+    if not user or not user.profile_completed:
+        return {"meals": {}, "totals": {"calories": 2000, "protein": 150, "carbs": 200, "fat": 60}}
+        
+    # Check if plan already exists in database
+    existing = db.query(NutritionPlanDB).filter(NutritionPlanDB.user_id == user_id).first()
+    if existing:
+        try:
+            return json.loads(existing.plan_json)
+        except Exception:
+            pass
+
+    # Generate a new plan dynamically and save it
+    new_plan = generate_ai_nutrition_plan(user, db)
     
-    return {
-        "meals": {
-            "breakfast": {
-                "name": "Bol d'Avoine Protéiné & Fruits Rouges",
-                "items": ["60g Flocons d'avoine", "30g Whey isolat", "100g Fruits rouges", "15g Graines de chia"],
-                "calories": int(cals * 0.25), "protein": int(cals * 0.25 * 0.08), "carbs": int(cals * 0.25 * 0.12), "fat": int(cals * 0.25 * 0.02)
-            },
-            "lunch": {
-                "name": "Poulet Basmati Teriyaki & Brocolis",
-                "items": ["150g Filet de poulet", "150g Rice basmati cuit", "150g Brocolis", "Sauce soja"],
-                "calories": int(cals * 0.35), "protein": int(cals * 0.35 * 0.08), "carbs": int(cals * 0.35 * 0.12), "fat": int(cals * 0.35 * 0.02)
-            },
-            "snack": {
-                "name": "Poignée d'Amandes & Pomme",
-                "items": ["30g Amandes", "1 Pomme"],
-                "calories": int(cals * 0.12), "protein": int(cals * 0.12 * 0.08), "carbs": int(cals * 0.12 * 0.12), "fat": int(cals * 0.12 * 0.02)
-            },
-            "dinner": {
-                "name": "Filet de Saumon, Patate Douce & Épinards",
-                "items": ["130g Saumon", "150g Purée de patate douce", "200g Épinards", "Citron"],
-                "calories": int(cals * 0.28), "protein": int(cals * 0.28 * 0.08), "carbs": int(cals * 0.28 * 0.12), "fat": int(cals * 0.28 * 0.02)
-            }
-        },
-        "totals": {
-            "calories": cals,
-            "protein": user.protein_target if user else 150,
-            "carbs": user.carbs_target if user else 200,
-            "fat": user.fat_target if user else 60
-        }
-    }
+    # Store in DB
+    if existing:
+        existing.plan_json = json.dumps(new_plan)
+        existing.created_at = datetime.now()
+    else:
+        plan_entry = NutritionPlanDB(user_id=user_id, plan_json=json.dumps(new_plan))
+        db.add(plan_entry)
+        
+    db.commit()
+    return new_plan
 
 @app.post("/api/nutrition-plan/regenerate")
 def regenerate_plan(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
-    return get_nutrition_plan(user_id, db)
+    user = db.query(UserDB).filter(UserDB.id == user_id).first()
+    if not user or not user.profile_completed:
+        raise HTTPException(status_code=400, detail="Profil non complété.")
+        
+    # Generate new plan
+    new_plan = generate_ai_nutrition_plan(user, db)
+    
+    # Save or update in DB
+    existing = db.query(NutritionPlanDB).filter(NutritionPlanDB.user_id == user_id).first()
+    if existing:
+        existing.plan_json = json.dumps(new_plan)
+        existing.created_at = datetime.now()
+    else:
+        plan_entry = NutritionPlanDB(user_id=user_id, plan_json=json.dumps(new_plan))
+        db.add(plan_entry)
+        
+    db.commit()
+    return new_plan
 
 @app.get("/api/ramadan")
 def get_ramadan_data(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
