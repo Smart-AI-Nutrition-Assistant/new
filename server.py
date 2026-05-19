@@ -96,6 +96,14 @@ class ProgressDB(Base):
     calories = Column(Integer)
     adherence = Column(Integer)
 
+class ChatMessageDB(Base):
+    __tablename__ = "chat_messages"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, index=True)
+    role = Column(String(50)) # "user" or "assistant"
+    content = Column(Text)
+    created_at = Column(DateTime, default=datetime.now)
+
 # Create tables
 Base.metadata.create_all(bind=engine)
 
@@ -547,19 +555,92 @@ def chat_interaction(schema: ChatSchema, user_id: int = Depends(get_current_user
             "user_longitude": user.longitude,
         }
     
+    # 1. Save user message to database
+    user_msg = ChatMessageDB(user_id=user_id, role="user", content=schema.message)
+    db.add(user_msg)
+    db.commit()
+
+    # 2. Fetch history from DB for this user as context
+    history_msgs = db.query(ChatMessageDB).filter(ChatMessageDB.user_id == user_id).order_by(ChatMessageDB.created_at.asc()).all()
+    chat_history = [{"role": msg.role, "content": msg.content} for msg in history_msgs if msg.id != user_msg.id]
+    
     # Run the real LangChain Agent!
     from src.agent import run_nutrition_agent
     try:
         reply = run_nutrition_agent(
             user_input=schema.message,
-            chat_history=schema.history,
+            chat_history=chat_history,
             user_profile=profile_dict,
             ramadan_mode=user.ramadan_mode if user else False
         )
     except Exception as e:
         reply = f"Désolé, j'ai rencontré une erreur technique : {e}"
         
-    return {"reply": reply, "history": schema.history + [{"role": "user", "content": schema.message}, {"role": "assistant", "content": reply}]}
+    # 3. Save assistant reply to database
+    assistant_msg = ChatMessageDB(user_id=user_id, role="assistant", content=reply)
+    db.add(assistant_msg)
+    db.commit()
+
+    # Format updated history response
+    updated_history = chat_history + [
+        {"role": "user", "content": schema.message},
+        {"role": "assistant", "content": reply}
+    ]
+    return {"reply": reply, "history": updated_history}
+
+@app.get("/api/chat/history")
+def get_chat_history(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    messages = db.query(ChatMessageDB).filter(ChatMessageDB.user_id == user_id).order_by(ChatMessageDB.created_at.asc()).all()
+    return [{"role": msg.role, "content": msg.content} for msg in messages]
+
+@app.delete("/api/chat/history")
+def clear_chat_history(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    db.query(ChatMessageDB).filter(ChatMessageDB.user_id == user_id).delete()
+    db.commit()
+    return {"success": True, "message": "Chat history cleared successfully"}
+
+@app.get("/api/chat/suggestions")
+def get_chat_suggestions(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    user = db.query(UserDB).filter(UserDB.id == user_id).first()
+    ramadan = user.ramadan_mode if user else False
+    
+    suggestions = [
+        {
+            "label": "Plats Tunisiens & Calories",
+            "text": "Comment manger équilibré avec des plats typiquement tunisiens comme la salade méchouia et contrôler mes calories ?",
+            "category": "nutrition",
+            "icon": "Apple"
+        },
+        {
+            "label": "Guide Ramadan Hydratation",
+            "text": "Comment répartir mes 3 litres d'eau entre l'Iftar et le Shour d'après nos principes ?",
+            "category": "ramadan",
+            "icon": "Moon"
+        },
+        {
+            "label": "Plan Protéines & Thon",
+            "text": "Donne-moi des idées de repas riches en protéines avec du thon, du poisson et du poulet selon les notes.",
+            "category": "diet",
+            "icon": "Flame"
+        },
+        {
+            "label": "Optimiser le Shour",
+            "text": "Que consommer au Shour pour avoir des protéines lentes et des fibres et tenir toute la journée ?",
+            "category": "ramadan",
+            "icon": "Activity"
+        },
+        {
+            "label": "Entraînement & Tarawih",
+            "text": "Quel est le meilleur moment pour s'entraîner en salle et quelle collation post-Tarawih prendre ?",
+            "category": "fitness",
+            "icon": "Dumbbell"
+        }
+    ]
+    
+    if ramadan:
+        suggestions = [s for s in suggestions if s["category"] == "ramadan"] + [s for s in suggestions if s["category"] != "ramadan"]
+        
+    return suggestions
 
 @app.get("/api/nutrition-plan")
 def get_nutrition_plan(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):

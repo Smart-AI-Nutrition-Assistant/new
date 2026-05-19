@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { chatService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Send, Trash2, Sparkles, MessageSquare, Flame, Moon, Dumbbell } from 'lucide-react';
+import { Send, Trash2, Sparkles, MessageSquare, Flame, Moon, Dumbbell, Apple, Activity } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import toast from 'react-hot-toast';
 import { Loader } from '../components/Loader';
@@ -9,6 +9,7 @@ import { Loader } from '../components/Loader';
 export const Chatbot = () => {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [initLoading, setInitLoading] = useState(true);
@@ -25,8 +26,18 @@ export const Chatbot = () => {
     }
   };
 
+  const fetchSuggestions = async () => {
+    try {
+      const data = await chatService.getSuggestions();
+      setSuggestions(data);
+    } catch (err) {
+      console.error("Failed to load suggestions", err);
+    }
+  };
+
   useEffect(() => {
     fetchHistory();
+    fetchSuggestions();
   }, []);
 
   const scrollToBottom = () => {
@@ -69,26 +80,21 @@ export const Chatbot = () => {
     }
   };
 
-  const quickPrompts = [
-    {
-      label: "Générer mon plan repas",
-      text: "Génère mon plan repas personnalisé pour cette semaine.",
-      icon: Flame,
-      color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/5",
-    },
-    {
-      label: "Guide Mode Ramadan",
-      text: "Active un plan Ramadan avec Shour, Iftar, snack post-Tarawih et hydratation.",
-      icon: Moon,
-      color: "text-amber-400 border-amber-500/20 bg-amber-500/5",
-    },
-    {
-      label: "Trouver une salle",
-      text: "Trouve la salle de sport la plus proche de ma localisation et adaptée à mon budget.",
-      icon: Dumbbell,
-      color: "text-blue-400 border-blue-500/20 bg-blue-500/5",
-    },
-  ];
+  const iconMap = {
+    Flame,
+    Moon,
+    Dumbbell,
+    Apple,
+    Activity
+  };
+
+  const colorMap = {
+    nutrition: "text-emerald-400 border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10",
+    ramadan: "text-amber-400 border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10",
+    diet: "text-emerald-400 border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10",
+    fitness: "text-blue-400 border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10",
+    calories: "text-rose-400 border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10"
+  };
 
   if (initLoading) {
     return (
@@ -138,17 +144,19 @@ export const Chatbot = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-6 max-w-xl mx-auto">
-              {quickPrompts.map((q, idx) => {
-                const Icon = q.icon;
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-6 max-w-2xl mx-auto">
+              {suggestions.map((q, idx) => {
+                const Icon = iconMap[q.icon] || Sparkles;
+                const colorClass = colorMap[q.category] || "text-emerald-400 border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10";
                 return (
                   <button
                     key={idx}
                     onClick={() => handleSend(q.text)}
-                    className={`p-4 rounded-2xl border text-left flex flex-col gap-2.5 transition-all hover:scale-[1.02] active:scale-95 ${q.color}`}
+                    className={`p-4 rounded-2xl border text-left flex flex-col gap-2.5 transition-all hover:scale-[1.02] active:scale-95 ${colorClass}`}
                   >
                     <Icon size={18} />
-                    <span className="text-xs font-bold text-slate-200 leading-snug">{q.label}</span>
+                    <span className="text-xs font-bold text-slate-250 leading-snug">{q.label}</span>
+                    <span className="text-[10px] text-slate-400 line-clamp-2 leading-normal font-medium">{q.text}</span>
                   </button>
                 );
               })}
@@ -211,6 +219,30 @@ export const Chatbot = () => {
 
       {/* Input container */}
       <div className="px-6 py-4 glass border-t border-slate-800 shrink-0">
+        {messages.length > 0 && suggestions.length > 0 && (
+          <div className="max-w-3xl mx-auto flex items-center gap-2 overflow-x-auto pb-3 scrollbar-none shrink-0">
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5 select-none">
+              <Sparkles size={10} className="text-emerald-400 animate-pulse" /> Conseils IA :
+            </span>
+            <div className="flex gap-2 items-center">
+              {suggestions.map((s, idx) => {
+                const Icon = iconMap[s.icon] || Sparkles;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSend(s.text)}
+                    className="text-[11px] bg-slate-900/80 hover:bg-slate-800/90 text-slate-300 hover:text-slate-200 px-3 py-1.5 rounded-full border border-slate-800 hover:border-slate-700 transition-all whitespace-nowrap flex items-center gap-1.5 active:scale-95"
+                  >
+                    <Icon size={11} className="text-slate-450" />
+                    <span>{s.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <form
           onSubmit={(e) => {
             e.preventDefault();

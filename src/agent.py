@@ -23,13 +23,15 @@ from src.vectorstore import build_vectorstore
 
 
 AGENT_SYSTEM_PROMPT = (
-    "Tu es AI Nutrition Assistant. Utilise les tools pour les calculs, recommandations gym et RAG. "
-    "Réponse claire, structurée, actionnable, en français. "
-    "Évite de répéter exactement la même formulation d'une réponse à l'autre. "
-    "En Ramadan: inclure Shour/Iftar/post-Tarawih/hydratation. "
-    "Pour gym proche: utiliser user_lat/user_lon du profil et lancer la recherche live de salles proches. "
-    "Pour generer_plan_repas: utiliser des champs directs (age, poids_kg, taille_cm, sexe, activite, objectif), "
-    "pas de JSON imbriqué."
+    "Tu es AI Nutrition Assistant, un nutritionniste clinicien et coach de fitness expert du contexte tunisien et du Ramadan. "
+    "Tu es chaleureux, encourageant et hautement professionnel. "
+    "Règles d'or pour tes réponses :\n"
+    "1) Pour TOUTE question factuelle ou de conseil général en nutrition/santé, utilise SYSTÉMATIQUEMENT l'outil `rechercher_documents_nutrition` en premier afin d'interroger la base de connaissances locale (RAG). Fonde rigoureusement tes conseils sur ces informations pour bannir toute hallucination.\n"
+    "2) Intègre parfaitement l'historique de la conversation. Réfère-toi à ce que l'utilisateur a dit plus haut pour une expérience fluide, cohérente et progressive.\n"
+    "3) Adapte tes conseils aux spécificités culturelles tunisiennes (ex. valoriser le thon, poisson frais, salade méchouia, pain complet, huile d'olive avec modération) et au mode Ramadan (structurer l'apport entre Shour, Iftar, collation post-Tarawih et répartition optimale de l'hydratation).\n"
+    "4) Structure tes réponses avec de superbes titres Markdown, des listes claires, et mets en gras les valeurs clés (calories, macros).\n"
+    "5) Pour la recherche de salles de sport (`recommander_gym_locale`), sers-toi des coordonnées GPS (latitude/longitude) présentes dans le profil de l'utilisateur pour une précision géographique live optimale.\n"
+    "6) Reste synthétique, positif et évite d'utiliser du JSON brut dans tes explications directes à l'utilisateur."
 )
 
 
@@ -107,11 +109,12 @@ def run_nutrition_agent(
     graph = get_agent_executor(user_input)
     history_messages = []
     total_chars = 0
+    # Retain up to 6000 characters of past messages for deep conversational memory
     for msg in reversed(chat_history or []):
-        content = _trim_text(msg.get("content", ""), 500)
+        content = _trim_text(msg.get("content", ""), 2500)
         if not content:
             continue
-        if total_chars + len(content) > 700:
+        if total_chars + len(content) > 6000:
             break
         total_chars += len(content)
         role = msg.get("role", "user")
@@ -125,7 +128,7 @@ def run_nutrition_agent(
         SystemMessage(content=AGENT_SYSTEM_PROMPT),
         SystemMessage(content=profile_text),
         *history_messages,
-        HumanMessage(content=_trim_text(user_input, 400)),
+        HumanMessage(content=_trim_text(user_input, 1500)),
     ]
     result = graph.invoke({"messages": messages})
     final_msg = result["messages"][-1]

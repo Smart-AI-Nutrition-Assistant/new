@@ -303,11 +303,13 @@ J'ai analysé votre profil et vos objectifs. Que souhaitez-vous ajuster aujourd'
 Posez-moi toutes vos questions sur la nutrition, le sport et la supplémentation !`;
       }
 
-      // Add to local chat history
-      const savedHist = getLocalData('mock_chat_history', []);
+      // Add to user-specific local chat history
+      const user = authService.getCurrentUser();
+      const historyKey = user ? `mock_chat_history_${user.email}` : 'mock_chat_history';
+      const savedHist = getLocalData(historyKey, []);
       savedHist.push({ role: 'user', content: message });
       savedHist.push({ role: 'assistant', content: reply });
-      setLocalData('mock_chat_history', savedHist);
+      setLocalData(historyKey, savedHist);
 
       return { reply, history: savedHist };
     }
@@ -318,7 +320,9 @@ Posez-moi toutes vos questions sur la nutrition, le sport et la supplémentation
       const response = await api.get('/api/chat/history');
       return response.data;
     } catch (err) {
-      return getLocalData('mock_chat_history', [
+      const user = authService.getCurrentUser();
+      const historyKey = user ? `mock_chat_history_${user.email}` : 'mock_chat_history';
+      return getLocalData(historyKey, [
         { role: 'assistant', content: 'Bonjour ! Remplissez votre profil pour recevoir des conseils et plans de repas adaptés à vos besoins.' }
       ]);
     }
@@ -328,9 +332,59 @@ Posez-moi toutes vos questions sur la nutrition, le sport et la supplémentation
     try {
       await api.delete('/api/chat/history');
     } catch (err) {
-      localStorage.removeItem('mock_chat_history');
+      const user = authService.getCurrentUser();
+      const historyKey = user ? `mock_chat_history_${user.email}` : 'mock_chat_history';
+      localStorage.removeItem(historyKey);
     }
     return [];
+  },
+
+  getSuggestions: async () => {
+    try {
+      const response = await api.get('/api/chat/suggestions');
+      return response.data;
+    } catch (err) {
+      const user = authService.getCurrentUser();
+      const ramadan = user?.profile?.ramadan_mode || false;
+      
+      const suggestions = [
+        {
+          label: "Plats Tunisiens & Calories",
+          text: "Comment manger équilibré avec des plats typiquement tunisiens comme la salade méchouia et contrôler mes calories ?",
+          category: "nutrition",
+          icon: "Apple"
+        },
+        {
+          label: "Guide Ramadan Hydratation",
+          text: "Comment répartir mes 3 litres d'eau entre l'Iftar et le Shour d'après nos principes ?",
+          category: "ramadan",
+          icon: "Moon"
+        },
+        {
+          label: "Plan Protéines & Thon",
+          text: "Donne-moi des idées de repas riches en protéines avec du thon, du poisson et du poulet selon les notes.",
+          category: "diet",
+          icon: "Flame"
+        },
+        {
+          label: "Optimiser le Shour",
+          text: "Que consommer au Shour pour avoir des protéines lentes et des fibres et tenir toute la journée ?",
+          category: "ramadan",
+          icon: "Activity"
+        },
+        {
+          label: "Entraînement & Tarawih",
+          text: "Quel est le meilleur moment pour s'entraîner en salle et quelle collation post-Tarawih prendre ?",
+          category: "fitness",
+          icon: "Dumbbell"
+        }
+      ];
+      
+      if (ramadan) {
+        return suggestions.filter(s => s.category === 'ramadan').concat(suggestions.filter(s => s.category !== 'ramadan'));
+      }
+      return suggestions;
+    }
   }
 };
 
